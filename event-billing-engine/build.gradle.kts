@@ -1,6 +1,8 @@
 plugins {
     java
     application
+    // Análisis estático con SonarQube Cloud (etapa v1.0)
+    id("org.sonarqube") version "7.5.0.8588"
 }
 
 group = "com.events.billing"
@@ -43,5 +45,16 @@ tasks.test {
         events("passed", "skipped", "failed")
         // Muestra en consola los println de los performance tests.
         showStandardStreams = true
+    }
+}
+
+// ===================== SonarQube Cloud =====================
+sonar {
+    properties {
+        property("sonar.projectKey", "MarianaMartinezGaviria_proyecto-calidad-sonar")
+        property("sonar.organization", "marianamartinezgaviria")
+        property("sonar.host.url", "https://sonarcloud.io")
+        // Etiqueta de la etapa: aparece en la pestaña Activity de SonarCloud.
+        property("sonar.projectVersion", "1.0")
     }
 }
