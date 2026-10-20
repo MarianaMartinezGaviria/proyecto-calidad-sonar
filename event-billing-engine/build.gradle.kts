@@ -79,7 +79,13 @@ sonar {
         // Main.java es la interfaz de consola (entrada/salida), no logica de negocio:
         // se excluye SOLO de la cobertura. Sonar lo sigue analizando (issues y complejidad).
         property("sonar.coverage.exclusions", "**/Main.java")
+        // En el plan gratuito no se puede editar el Quality Profile, asi que la regla
+        // java:S106 ("no usar System.out") se ignora SOLO en Main.java: es la consola
+        // interactiva y su funcion es justamente imprimir. Las demas reglas siguen activas.
+        property("sonar.issue.ignore.multicriteria", "e1")
+        property("sonar.issue.ignore.multicriteria.e1.ruleKey", "java:S106")
+        property("sonar.issue.ignore.multicriteria.e1.resourceKey", "**/Main.java")
         // Etiqueta de la etapa: aparece en la pestaña Activity de SonarCloud.
-        property("sonar.projectVersion", "1.2")
+        property("sonar.projectVersion", "1.3")
     }
 }
