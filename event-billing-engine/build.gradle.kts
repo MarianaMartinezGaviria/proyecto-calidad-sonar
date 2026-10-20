@@ -76,7 +76,10 @@ sonar {
         // Ruta del reporte XML de JaCoCo que SonarCloud importa como cobertura.
         property("sonar.coverage.jacoco.xmlReportPaths",
                  "build/reports/jacoco/test/jacocoTestReport.xml")
+        // Main.java es la interfaz de consola (entrada/salida), no logica de negocio:
+        // se excluye SOLO de la cobertura. Sonar lo sigue analizando (issues y complejidad).
+        property("sonar.coverage.exclusions", "**/Main.java")
         // Etiqueta de la etapa: aparece en la pestaña Activity de SonarCloud.
-        property("sonar.projectVersion", "1.1")
+        property("sonar.projectVersion", "1.2")
     }
 }
