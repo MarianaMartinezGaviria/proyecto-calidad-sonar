@@ -29,7 +29,8 @@ jobs:
           distribution: temurin
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4   # incluye la cache de Gradle
+        # Fijada al hash del commit (no a la etiqueta movible @v4), como pide la regla githubactions:S7637.
+        uses: gradle/actions/setup-gradle@748248ddd2a24f49513d8f472f81c3a07d4d50e1 # v4.4.4
 
       - name: Cache SonarQube packages
         uses: actions/cache@v4
@@ -44,4 +45,5 @@ jobs:
       - name: Build and analyze
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./gradlew build sonar --info
+        # jacocoTestReport va antes de sonar para que el reporte de cobertura ya exista.
+        run: ./gradlew build jacocoTestReport sonar --info
