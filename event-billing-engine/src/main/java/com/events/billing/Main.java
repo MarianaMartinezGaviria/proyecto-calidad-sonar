@@ -115,29 +115,20 @@ public class Main {
         String cuponCode = leerCupon();
 
         // 5) Se construye la compra
-        List<Ticket> tickets = new ArrayList<>();
-        int idTicket = 1;
-        for (ItemCarrito it : items) {
-            for (int k = 0; k < it.cantidad(); k++) {
-                tickets.add(new Ticket("T" + (idTicket++), it.esp().evento(), it.esp().precio()));
-            }
-        }
-        Purchase venta = new Purchase(cliente, tickets, cuponCode, LocalDate.now());
+        Purchase venta = new Purchase(cliente, construirTickets(items), cuponCode, LocalDate.now());
 
         // 6) Calculo con desglose (usando las reglas del dominio)
         double subtotal = venta.getSubtotal();
         double trasCategoria = REGLA_CATEGORIA.apply(subtotal, venta);
         double descCategoria = subtotal - trasCategoria;
 
-        double total;
-        double descCupon;
-        if (cuponCode != null) {
-            total = new DiscountEngine(List.of(REGLA_CATEGORIA, REGLA_CUPON)).calculateTotal(venta);
-            descCupon = trasCategoria - total;
-        } else {
-            total = trasCategoria;
-            descCupon = 0.0;
-        }
+        // REFACTOR v1.4: en lugar de un if/else que duplicaba el calculo, se elige la
+        // lista de reglas y el motor calcula siempre. Sin cupon, descCupon queda en 0.
+        List<DiscountRule> reglas = (cuponCode != null)
+                ? List.of(REGLA_CATEGORIA, REGLA_CUPON)
+                : List.of(REGLA_CATEGORIA);
+        double total = new DiscountEngine(reglas).calculateTotal(venta);
+        double descCupon = trasCategoria - total;
         double ahorro = subtotal - total;
 
         // 7) Factura
@@ -147,6 +138,25 @@ public class Main {
         HISTORIAL.add(new Registro(nombre, categoria, cuponCode, subtotal, total, ahorro));
 
         pausa();
+    }
+
+    /**
+     * REFACTOR v1.4: extraido de registrarVenta. Antes eran dos for anidados dentro
+     * de un metodo largo; ahora cada nivel queda en un metodo pequeno con un solo for.
+     */
+    private static List<Ticket> construirTickets(List<ItemCarrito> items) {
+        List<Ticket> tickets = new ArrayList<>();
+        for (ItemCarrito it : items) {
+            agregarTickets(tickets, it);
+        }
+        return tickets;
+    }
+
+    /** Agrega 'cantidad' tickets del item, numerados T1, T2, ... de forma continua. */
+    private static void agregarTickets(List<Ticket> tickets, ItemCarrito it) {
+        for (int k = 0; k < it.cantidad(); k++) {
+            tickets.add(new Ticket("T" + (tickets.size() + 1), it.esp().evento(), it.esp().precio()));
+        }
     }
 
     private static CustomerCategory leerCategoria() {
@@ -165,21 +175,18 @@ public class Main {
     private static List<ItemCarrito> leerCarrito() {
         List<ItemCarrito> items = new ArrayList<>();
         while (true) {
-            System.out.println();
-            System.out.println("Cartelera:");
-            for (int i = 0; i < CARTELERA.size(); i++) {
-                Espectaculo e = CARTELERA.get(i);
-                System.out.printf(Locale.US, "  %d) %-18s %8s%n", i + 1, e.evento().getNombre(), money(e.precio()));
-            }
-            System.out.println("  0) Terminar y continuar");
+            mostrarCartelera();
 
             int op = leerEntero("Agregar evento (0-" + CARTELERA.size() + "): ", 0, CARTELERA.size());
-            if (op == 0) {
-                if (items.isEmpty()) {
-                    System.out.println("  > Debes agregar al menos un evento a la compra.");
-                    continue;
-                }
+            // REFACTOR v1.4: los dos if anidados (op == 0 -> items vacio) se aplanan
+            // en condiciones de un solo nivel; el anidamiento es lo que mas penaliza
+            // la complejidad cognitiva.
+            if (op == 0 && !items.isEmpty()) {
                 return items;
+            }
+            if (op == 0) {
+                System.out.println("  > Debes agregar al menos un evento a la compra.");
+                continue;
             }
             Espectaculo elegido = CARTELERA.get(op - 1);
             int cantidad = leerEntero("  Cuantas entradas? (1-50): ", 1, 50);
@@ -191,6 +198,17 @@ public class Main {
         }
     }
 
+    /** REFACTOR v1.4: extraido de leerCarrito (el for ya no queda dentro del while). */
+    private static void mostrarCartelera() {
+        System.out.println();
+        System.out.println("Cartelera:");
+        for (int i = 0; i < CARTELERA.size(); i++) {
+            Espectaculo e = CARTELERA.get(i);
+            System.out.printf(Locale.US, "  %d) %-18s %8s%n", i + 1, e.evento().getNombre(), money(e.precio()));
+        }
+        System.out.println("  0) Terminar y continuar");
+    }
+
     private static String leerCupon() {
         while (true) {
             System.out.print("Codigo de cupon (Enter = ninguno): ");
@@ -199,20 +217,33 @@ public class Main {
                 return null;
             }
             String upper = code.toUpperCase(Locale.ROOT);
-            Coupon cupon = CUPONES.get(upper);
-
-            if (cupon == null) {
-                System.out.println("  > El cupon '" + code + "' no existe.");
-            } else if (cupon.estaExpirado(LocalDate.now())) {
-                System.out.println("  > El cupon '" + upper + "' esta vencido.");
-            } else {
-                System.out.printf(Locale.US, "  > Cupon aplicado: %s (-%s)%n", upper, money(cupon.getMontoDescuento()));
+            if (cuponAplicable(code, upper)) {
                 return upper;
             }
             if (!leerSiNo("  > Intentar con otro cupon? (s/n): ")) {
                 return null;
             }
         }
+    }
+
+    /**
+     * REFACTOR v1.4: extraido de leerCupon. La cadena if / else-if / else que estaba
+     * dentro del while se reemplaza por "guard clauses" (retornos tempranos) en un
+     * metodo propio, sin anidamiento. Informa al usuario el resultado y devuelve
+     * true si el cupon se puede aplicar.
+     */
+    private static boolean cuponAplicable(String code, String upper) {
+        Coupon cupon = CUPONES.get(upper);
+        if (cupon == null) {
+            System.out.println("  > El cupon '" + code + "' no existe.");
+            return false;
+        }
+        if (cupon.estaExpirado(LocalDate.now())) {
+            System.out.println("  > El cupon '" + upper + "' esta vencido.");
+            return false;
+        }
+        System.out.printf(Locale.US, "  > Cupon aplicado: %s (-%s)%n", upper, money(cupon.getMontoDescuento()));
+        return true;
     }
 
     private static void imprimirFactura(String nombre, CustomerCategory categoria, String cupon,
