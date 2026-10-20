@@ -86,6 +86,6 @@ sonar {
         property("sonar.issue.ignore.multicriteria.e1.ruleKey", "java:S106")
         property("sonar.issue.ignore.multicriteria.e1.resourceKey", "**/Main.java")
         // Etiqueta de la etapa: aparece en la pestaña Activity de SonarCloud.
-        property("sonar.projectVersion", "1.3")
+        property("sonar.projectVersion", "1.4")
     }
 }
