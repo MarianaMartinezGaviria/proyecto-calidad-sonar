@@ -1,6 +1,8 @@
 plugins {
     java
     application
+    // Cobertura de pruebas (etapa v1.1)
+    jacoco
     // Análisis estático con SonarQube Cloud (etapa v1.0)
     id("org.sonarqube") version "7.5.0.8588"
 }
@@ -46,6 +48,23 @@ tasks.test {
         // Muestra en consola los println de los performance tests.
         showStandardStreams = true
     }
+
+    // Al terminar las pruebas, se genera el reporte de cobertura.
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+// ===================== JaCoCo (cobertura) =====================
+jacoco {
+    // 0.8.14+ es necesaria para leer clases compiladas con Java 25.
+    toolVersion = "0.8.15"
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required = true   // lo lee SonarCloud
+        html.required = true  // lo abres tu en: build/reports/jacoco/test/html/index.html
+    }
 }
 
 // ===================== SonarQube Cloud =====================
@@ -54,7 +73,10 @@ sonar {
         property("sonar.projectKey", "MarianaMartinezGaviria_proyecto-calidad-sonar")
         property("sonar.organization", "marianamartinezgaviria")
         property("sonar.host.url", "https://sonarcloud.io")
+        // Ruta del reporte XML de JaCoCo que SonarCloud importa como cobertura.
+        property("sonar.coverage.jacoco.xmlReportPaths",
+                 "build/reports/jacoco/test/jacocoTestReport.xml")
         // Etiqueta de la etapa: aparece en la pestaña Activity de SonarCloud.
-        property("sonar.projectVersion", "1.0")
+        property("sonar.projectVersion", "1.1")
     }
 }
